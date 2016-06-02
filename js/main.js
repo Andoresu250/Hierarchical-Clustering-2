@@ -48,10 +48,13 @@ var n;
 var m;
 var routes;
 var cur = 0;
+var curDistance = 0;
+var curMarker = 0;
 var requestArray = [];
 var directionsService = new google.maps.DirectionsService();
 var geocoder = geocoder = new google.maps.Geocoder();
 var renderArray = []
+var distanceArray;
 var label = 0;
 var fileText = "";
 
@@ -431,73 +434,112 @@ function sleepFor( sleepDuration ){
     while(new Date().getTime() < now + sleepDuration){ /* do nothing */ } 
 };
 
-function getDistance(origin, destination) {
-            
-    var geocoder = new google.maps.Geocoder;
-    var service = new google.maps.DistanceMatrixService;
-
-    service.getDistanceMatrix({
-        origins: [origin.name],
-        destinations: [destination.name],
-        travelMode: google.maps.TravelMode.DRIVING,
-        unitSystem: google.maps.UnitSystem.METRIC,
-        avoidHighways: false,
-        avoidTolls: false
-    }, function(response, status) {
-        if (status !== google.maps.DistanceMatrixStatus.OK) {
-            //console.log('Error was: ' + status);
-            if(status === "OVER_QUERY_LIMIT"){
-                //console.log("Estoy durmiendo por que me pase");                
-                //sleepFor(5*1000); 
-            }
-
-        } else {
-            var originList = response.originAddresses;
-            var destinationList = response.destinationAddresses;                          
-
-            var showGeocodedAddressOnMap = function(asDestination) {                
-                return function(results, status) {
-                    if (status === google.maps.GeocoderStatus.OK) {                 
-            
-                    } else {
-                        //console.log('Error was: ' + status);
-                        if(status === "OVER_QUERY_LIMIT"){
-                            //console.log("Estoy durmiendo por que me pase");                            
-                            //sleepFor(5*1000); 
-                        }                               
-                    }
-                };
-            };                              
-            for (var i = 0; i < originList.length; i++) {
-                var results = response.rows[i].elements;                        
-                geocoder.geocode({'address': originList[i]},
-                showGeocodedAddressOnMap(false));
-                for (var j = 0; j < results.length; j++) {
-                    geocoder.geocode({'address': destinationList[j]},
-                    showGeocodedAddressOnMap(true));                                                                                                                                        
-                    if(results[j].status === "ZERO_RESULTS"){                                                               
-                        matrix[origin.i][origin.j] = undefined;
-                        matrix[origin.j][origin.i] = undefined;
-                    }else{
-                        if(results[j].distance.value !== 0){
-                            matrix[origin.i][origin.j] = results[j].distance.value;                                                      
-                            matrix[origin.j][origin.i] = results[j].distance.value;                                                      
-                        }else{
-                            matrix[origin.i][origin.j] = undefined;
-                            matrix[origin.j][origin.i] = undefined;  
-                        }                        
-                    }
-                }
-            }       
-            if((origin.i === matrix.length - 2) && (origin.j === matrix.length - 1)){                
-                originalMatrix = copytMatrix(matrix);                                
-                console.log("imprimiendo matriz");
-                printMatrix(matrix);
-                hirarchicalClustering();
-            }           
+function generateDistanceRequestArray(){
+    var cont = 0;    
+    for (var i = 0; i < cities.length; i++) {                                            
+        for (var j = i + 1; j < cities.length; j++) {                        
+            cont++;                
         }
-    });
-};  
+    }    
+    distanceArray = new Array(cont);
+    cont = 0;
+    for (var i = 0; i < cities.length; i++) {                                            
+        for (var j = i + 1; j < cities.length; j++) {                        
+            var obj = {
+                "origin": cities[i],
+                "destination": cities[j],
+                "i": i,
+                "j": j
+            }            
+            distanceArray[cont] = obj;           
+            cont++;
+        }
+    }    
+    submitDistanceRequests();
+}
+
+function submitDistanceRequests(){    
+    var service = new google.maps.DistanceMatrixService;   
+    requestLength = distanceArray.length
+    if(requestLength != 0) {            
+        var service = new google.maps.DistanceMatrixService;
+        service.getDistanceMatrix({
+            origins: [distanceArray[0].origin],
+            destinations: [distanceArray[0].destination],
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC,
+            avoidHighways: false,
+            avoidTolls: false
+        }, distanceResults);            
+    }
+} 
+
+function distanceResults(response, status) {  
+    var service = new google.maps.DistanceMatrixService;     
+    if (status !== google.maps.DistanceMatrixStatus.OK) {
+        //console.log('Error was: ' + status);
+        if(status === "OVER_QUERY_LIMIT"){
+            //console.log("Estoy durmiendo por que me pase");                
+            //sleepFor(5*1000); 
+            curDistance--;
+            console.log("esperando 5 segundos .....");            
+            sleepFor(5000);
+            if(curDistance < distanceArray.length){
+                service.getDistanceMatrix({
+                    origins: [distanceArray[curDistance].origin],
+                    destinations: [distanceArray[curDistance].destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.METRIC,
+                    avoidHighways: false,
+                    avoidTolls: false
+                }, distanceResults);
+            }
+        }
+
+    } else {
+        var originList = response.originAddresses;
+        var destinationList = response.destinationAddresses;                          
+        var indexI = distanceArray[curDistance].i;
+        var indexJ = distanceArray[curDistance].j;                                  
+        for (var i = 0; i < originList.length; i++) {
+            var results = response.rows[i].elements;                                    
+            for (var j = 0; j < results.length; j++) {    
+                curDistance++;                
+                if(results[j].status === "ZERO_RESULTS"){                                                               
+                    matrix[indexI][indexJ] = undefined;
+                    matrix[indexJ][indexI] = undefined;
+                }else{
+                    if(results[j].distance.value !== 0){
+                        matrix[indexI][indexJ] = results[j].distance.value;                                                      
+                        matrix[indexJ][indexI] = results[j].distance.value;                                                      
+                    }else{
+                        matrix[indexI][indexJ] = undefined;
+                        matrix[indexJ][indexI] = undefined;  
+                    }                        
+                }
+            }
+        }       
+        if((indexI === matrix.length - 2) && (indexJ === matrix.length - 1)){                
+            originalMatrix = copytMatrix(matrix);                                
+            console.log("imprimiendo matriz");
+            printMatrix(matrix);
+            hirarchicalClustering();
+        }else{
+            if(curDistance < distanceArray.length){
+                service.getDistanceMatrix({
+                    origins: [distanceArray[curDistance].origin],
+                    destinations: [distanceArray[curDistance].destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.METRIC,
+                    avoidHighways: false,
+                    avoidTolls: false
+                }, distanceResults);
+            }
+        }           
+    }
+}
+
+
 
 String.prototype.replaceAt=function(index, character) {
     return this.substr(0, index) + character + this.substr(index+character.length);
@@ -525,33 +567,44 @@ function runAll(){
     matrix = createMatrix(cities.length);
     n = matrix.length;
     m = matrix[0].length;
-    for (var i = 0; i < n; i++) {                                            
-        for (var j = i + 1; j < m; j++) {
-            var origin = {"name": cities[i],"i":i, "j":j};
-            var destination = {"name": cities[j],"i":i, "j":j}; 
-            getDistance(origin, destination);                     
-        }
-    }           
+    generateDistanceRequestArray();    
 }
 
 function setMarkers(){
+    submitMarkersRequests();    
+}
+
+function submitMarkersRequests(){
     var geocoder = geocoder = new google.maps.Geocoder();
-    var label = 0;
-    for (var i = 0; i < cities.length; i++) {        
-        geocoder.geocode( { 'address': cities[i]}, function(results, status) {
-            if (status == google.maps.GeocoderStatus.OK) {                
-                map.setCenter(results[0].geometry.location);
-                var text = label+""
-                var marker = new google.maps.Marker({
-                    map: map,
-                    label: text,
-                    position: results[0].geometry.location
-                });
-                label++;
-            } else {
-                console.log('Geocode was not successful for the following reason: ' + status);
-            }
+    requestLength = cities.length
+    if(requestLength != 0) {        
+        geocoder.geocode( { 'address': cities[0]}, markersResults);
+    }
+}
+
+function markersResults(results, status){
+    var geocoder = geocoder = new google.maps.Geocoder();
+    if (status == google.maps.GeocoderStatus.OK) {                
+        map.setCenter(results[0].geometry.location);                
+        var marker = new google.maps.Marker({
+            map: map,
+            label: results[0].formatted_address,
+            position: results[0].geometry.location
         });
+        curMarker++;
+        if(curMarker < cities.length){
+            geocoder.geocode( { 'address': cities[curMarker]}, markersResults);    
+        }        
+    } else {
+        console.log('Geocode was not successful for the following reason: ' + status);
+        if(status === "OVER_QUERY_LIMIT"){
+            console.log("esperando 5 segundos .....");
+            curMarker--;
+            sleepFor(5000);
+        }        
+        if (cur < requestLength) {
+            geocoder.geocode( { 'address': cities[curMarker]}, markersResults);
+        }
     }
 }
 
