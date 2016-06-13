@@ -1,3 +1,26 @@
+String.prototype.replaceAll = function(str1, str2, ignore) 
+{
+    return this.replace(new RegExp(str1.replace(/([\/\,\!\\\^\$\{\}\[\]\(\)\.\*\+\?\|\<\>\-\&])/g,"\\$&"),(ignore?"gi":"g")),(typeof(str2)=="string")?str2.replace(/\$/g,"$$$$"):str2);
+} 
+var selectIndex = 0;
+var ref = new Firebase("https://hierarchicalcluster.firebaseio.com/");
+var filesRef = ref.child("files");
+var fireBaseFiles = [];
+filesRef.on("value", function(snapshot) {
+    snapshot.forEach(function(fileSnapshot) {
+        fireBaseFiles.push(fileSnapshot.val());  
+        var select = document.getElementById("fireBaseFiles");
+        var opt = "Archivo con: " + fileSnapshot.val().length + " Ciudades";
+        var el = document.createElement("option");
+        el.textContent = opt;
+        el.value = selectIndex;
+        selectIndex++;
+        select.appendChild(el);
+    });  
+}, function (errorObject) {
+  console.log("The read failed: " + errorObject.code);
+});
+
 var map;
 var colors = [ "#000230", "#1e1227", "#39064a", "#741109", "#033550",
                 "#23371e", "#003888", "#66002a", "#b31000", "#1199ff",
@@ -57,6 +80,8 @@ var renderArray = []
 var distanceArray;
 var label = 0;
 var fileText = "";
+var theRealRoutes;
+var openAFile = false;
 
 
 function readFile (evt) {    
@@ -66,7 +91,52 @@ function readFile (evt) {
    reader.onload = function() {     
      fileText = this.result;           
    }
+   openAFile = true;
    reader.readAsText(file)
+}
+
+function sendFileToFireBase(cities){
+    var filesRef = ref.child("files");
+    var sw = false;
+    for (var i = 0; i < fireBaseFiles.length; i++) {
+        if(isFileInFireBase(cities, i)){
+            sw = true;break;
+        }
+    }
+    if(!sw){
+        filesRef.push().set(cities);    
+    }    
+}
+
+function isFileInFireBase(cities, j){    
+    if(cities.length !== fireBaseFiles[j].length){
+        return false;
+    }
+    for (var i = 0; i < fireBaseFiles.length; i++) {        
+       if(fireBaseFiles[j][i] !== cities[i]){
+            return false
+       }
+    }
+    return true;
+}
+
+function getRoute(originCities, destinationCities){    
+    var originArray = originCities.split(',');
+    var destinationArray = destinationCities.split(',');
+    var origin = parseInt(originArray[0]);
+    var destination = parseInt(destinationArray[0]);
+    var minDistance = originalMatrix[origin][destination]
+    for (var i = 0; i < originArray.length; i++) {
+        for (var j = 0; j < destinationArray.length; j++) {
+            if(originalMatrix[parseInt(originArray[i])][parseInt(destinationArray[j])] < minDistance){
+                origin = parseInt(originArray[i]);
+                destination = parseInt(destinationArray[j]);
+                minDistance = originalMatrix[origin][destination]
+            }            
+        }
+    }
+    console.log("Route: " + origin + " - " + destination);
+    return {"origin":cities[origin],"destination":cities[destination]};
 }
 
 function initMap() {
@@ -79,135 +149,6 @@ function initMap() {
         });         
 }
 
-function getOrder(argument){
-    var order = [];         
-    for(var i = 0; i < argument.length; i++){
-        var last = 0;
-        var char = argument.substring(i,i+1);
-        if(char === "*"){                   
-            if( argument.substring(i-2,i-1) === ","){
-                for(var j = i; j > 0; j--){                     
-                    if(argument.substring(j-1,j) === "("){
-                        if(argument.substring(j,i-2) !== ""){
-                            order.push(argument.substring(j,i-2));                              
-                        }                                                           
-                        argument = argument.replace(argument.substring(j-1,i+1),'');                                                            
-                        i = 0;
-                        break;
-                    }
-                }
-            }else{
-                for(var j = i; j > 0; j--){                     
-                    if(argument.substring(j-1,j) === "("){                          
-                        order.push(argument.substring(j,i-1));                          
-                        argument = argument.replace(argument.substring(j-1,i+1),'');                                                            
-                        i = 0;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    return order;
-}
-
-function getRoutes(order){
-    var routes = [];        
-    if(order.length === 1){
-        var points = order[0].split(',');
-        if(points.length === 2){
-            var obj = {
-                        origin: cities[parseInt(points[0])],
-                        destination: cities[parseInt(points[1])]
-                    };
-            if(!isObjectInArray(routes,obj)){routes.push(obj);}
-        }
-    }       
-    while(order.length > 1){                    
-        for (var i = 0; i < order.length; i++) {            
-            var points = order[i].split(',');            
-            if(points.length > 1){
-                var sw = false;
-                if(i !== 0){                            
-                    var previusCluster = order[i-1].split(',');
-                    if(i < order.length - 1){
-                        var nextCluster = order[i+1].split(',');
-                        if(nextCluster.length > 1 && previusCluster.length > 1){                                    
-                            var origin = parseInt(points[0]);                               
-                            var destination = parseInt(previusCluster[0]);
-                            for (var k = 0; k < points.length; k++) {
-                                for (var j = 0; j < previusCluster.length; j++) {
-                                    if(originalMatrix[parseInt(points[k])][parseInt(previusCluster[j])] < originalMatrix[origin][destination]){
-                                        origin = parseInt(points[k]);
-                                        destination = parseInt(previusCluster[j]);
-                                    }           
-                                }                                       
-                            }
-                            var obj = {origin: cities[parseInt(origin)],
-                                destination: cities[parseInt(destination)]};
-                            if(!isObjectInArray(routes,obj)){routes.push(obj);}
-                            order[i-1] += "," + order[i];
-                            order.splice(i,1);
-                            i = -1;
-                        }
-                    }
-                    if(previusCluster.length > 1 && i === order.length - 1){                                
-                        var origin = parseInt(points[0]);                               
-                        var destination = parseInt(previusCluster[0]);
-                        for (var k = 0; k < points.length; k++) {
-                            for (var j = 0; j < previusCluster.length; j++) {                                       
-                                if(originalMatrix[parseInt(points[k])][parseInt(previusCluster[j])] < originalMatrix[origin][destination]){
-                                    origin = parseInt(points[k]);
-                                    destination = parseInt(previusCluster[j]);
-                                }           
-                            }                                       
-                        }
-                        var obj = {origin: cities[parseInt(origin)],
-                            destination: cities[parseInt(destination)]};
-                        if(routes.indexOf(obj)===-1){routes.push(obj);}
-                        order[i-1] += "," + order[i];
-                        order.splice(i,1);
-                        i = -1;
-                    }                                                                           
-                }                       
-                if(points.length === 2){                            
-                    var obj = {
-                                origin: cities[parseInt(points[0])],
-                                destination: cities[parseInt(points[1])]
-                            };
-                    if(!isObjectInArray(routes,obj)){routes.push(obj);}
-                }else{
-
-                }
-                
-            }else{                                
-                var lastCluster = order[i-1].split(',');                                
-                var min = parseInt(lastCluster[0]);
-                for (var j = 1; j < lastCluster.length; j++) { 
-                    if(originalMatrix[parseInt(lastCluster[j])][parseInt(points[0])] < originalMatrix[min][parseInt(points[0])]){
-                        min = parseInt(lastCluster[j]);                        
-                    }
-                }
-                routes.push({origin: cities[parseInt(points[0])],
-                            destination: cities[min]});                                                  
-                order[i-1] += ',' + order[i];
-                order.splice(i,1);
-                i = -1;
-            }
-        }
-    }
-    return routes;
-}
-
-function drawRoutes(argument) {
-    var order = getOrder(argument);
-    var routes = getRoutes(order);       
-    for (var i = 0; i < routes.length; i++) {
-        console.log(i + ": " + routes[i].origin + " - " + routes[i].destination);               
-    }   
-    generateRequestArray(routes);       
-};  
-
 function isObjectInArray(array, object){
     for (var i = 0; i < array.length; i++) {
         if((array[i].origin === object.origin && array[i].destination === object.destination) || (array[i].origin === object.destination && array[i].destination === object.origin)){
@@ -218,6 +159,7 @@ function isObjectInArray(array, object){
 }
 
 function hirarchicalClustering(){
+    theRealRoutes = []
     initCluster();
     while(matrix.length > 1 && !undefinedMatrix(matrix)){                                
         var obj = getMinValueMatrix();              
@@ -228,16 +170,26 @@ function hirarchicalClustering(){
         console.log("i,j: " + indexI + "," + indexJ);
         console.log("origin: " + origin);
         console.log("destination: " + destination);
+        var a = origin;
+        a = a.replaceAll('(','');
+        a = a.replaceAll(')','');
+        a = a.replaceAll('*','');
+        var b = destination;
+        b = b.replaceAll('(','');
+        b = b.replaceAll(')','');
+        b = b.replaceAll('*','');  
         if(obj.value !== undefined){
-            addCluster(origin, destination);    
+            theRealRoutes.push(getRoute(a+"",b+""));    
+            addCluster(origin, destination);            
         }        
         printMatrix(matrix);
     }
     printClusters();    
-    for (var i = 0; i < clusters.length; i++) {  
-        console.log("Rutas del Cluster #" + i + ": ");      
-        drawRoutes(clusters[i]);
+    console.log("The real routes:");
+    for (var i = 0; i < theRealRoutes.length; i++) {
+        console.log(theRealRoutes[i].origin + " - " + theRealRoutes[i].destination);        
     }
+    generateRequestArray(theRealRoutes);
 };
 
 function undefinedMatrix(matrix){
@@ -550,8 +502,13 @@ function replaceAt(str, index, character){
 }
 
 function runAll(){    
+    var sel = document.getElementById("fireBaseFiles");
+    var val = sel.options[sel.selectedIndex].value;
+    if(val !== -1 ){
+        cities = fireBaseFiles[val];
+    }
     if(fileText !== undefined){
-        cities = fileText.split(/\r\n|\n/);                   
+        cities = fileText.split(/\r\n|\n/);                           
     }    
     if(cities[cities.length-1] === ""){
         cities.splice(-1,1);
@@ -561,8 +518,10 @@ function runAll(){
             cities[i] = replaceAt(cities[i], cities[i].indexOf("�"), "ñ");            
         }
         console.log("#" + i + ": " + cities[i]);
+    }    
+    if(openAFile){
+        sendFileToFireBase(cities);
     }
-
     setMarkers();         
     matrix = createMatrix(cities.length);
     n = matrix.length;

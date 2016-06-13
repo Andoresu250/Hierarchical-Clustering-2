@@ -5,6 +5,8 @@
     <title></title>    
     <link rel="stylesheet" type="text/css" href="css/main.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src='https://cdn.firebase.com/js/client/2.2.1/firebase.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js'></script>
   </head>
   <body>
     <script type="text/javascript" src="js/main.js"></script>   
@@ -21,8 +23,17 @@
           </button>          
         </div>
         <!-- Collect the nav links, forms, and other content for toggling -->
-        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">      
-          <ul class="nav navbar-nav navbar-right">                                
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">                                             
+          <ul class="nav navbar-nav navbar-right">  
+            <li> <a>Seleccionar Archivo Previo: </a></li>                             
+            <li>
+              <div class="form-group">                
+                <select class="form-control navbar-btn" id="fireBaseFiles">
+                  <<option value="-1">Elegir Archivo</option>}
+                  option
+                </select>
+              </div>
+            </li> 
             <li>
               <p class="navbar-btn">
                 <label class="btn btn-default" for="my-file-selector">
@@ -46,14 +57,14 @@
     <footer class="footer">
       <div>        
         <center>        
-          <p><span class="glyphicon glyphicon-pencil"></span> developed by Yesid Soto, Nestor Torres, Andres Vera , Google, StackOverFlow & et al. Inteligencia Artificial 2016-1</p>            
+          <p><span class="glyphicon glyphicon-pencil"></span> developed by Yesid Soto, Nestor Torres, Andres Vera , Google, StackOverFlow & et al. Inteligencia Artificial 2016-1, To professor Eduardo Zurek</p>            
         </center>        
       </div>
     </footer>
 
   </body>
   
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC4H1zCNqphlFXQWHhW1teFOD2-SV-qppo&callback=initMap"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBh0swAaAfvjfyAH-wvtgLE__2wccDS55E&callback=initMap"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
 
 </html>
